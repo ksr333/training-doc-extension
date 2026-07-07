@@ -55,7 +55,7 @@ storageGet(['steps', 'logoUrl', 'customLogo', 'customLogoLeft', 'suggestedTitle'
   lastSyncTimestamp = Math.max(...steps.map(s => s.timestamp || 0), 0);
   if (suggestedTitle && suggestedTitle !== TITLE_PLACEHOLDER) guideTitleText = suggestedTitle;
   if (guideDescription) guideDescText = guideDescription;
-  emptyEl.remove();
+  emptyEl?.remove();
   renderDoc(logoUrl, customLogo || null, customLogoLeft || null);
   docRendered = true;
 });
@@ -762,6 +762,9 @@ function applyRedaction(img, step, xPct, yPct, wPct, hPct) {
   const newSrc = canvas.toDataURL('image/jpeg', 0.95);
   img.src = newSrc;
   step.screenshot = newSrc;
+  // Also update the source record in liveSteps (step here is a withLocalNumbers copy)
+  const liveStep = liveSteps.find(s => s.stepNumber === step.stepNumber);
+  if (liveStep) liveStep.screenshot = newSrc;
 }
 
 // ─── Annotate mode ────────────────────────────────────────────────────────────
