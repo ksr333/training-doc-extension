@@ -1347,10 +1347,12 @@ document.getElementById('btnShare')?.addEventListener('click', async () => {
     ]);
 
     const safeJson = JSON.stringify(data).replace(/<\/script>/gi, '<\\/script>');
+    const safeJs  = jsSrc.replace(/<\/script>/gi, '<\\/script>');
+    const safeZip = zipSrc.replace(/<\/script>/gi, '<\\/script>');
     let html = htmlSrc
-      .replace('<script src="minizip.js"></script>', `<script id="__minizip__">${zipSrc}</script>`)
+      .replace('<script src="minizip.js"></script>', `<script id="__minizip__">${safeZip}<\/script>`)
       .replace('<script src="report.js"></script>',
-        `<script id="__traindoc_data__">window.__TRAINDOC_DATA__ = ${safeJson};</script>\n<script id="__traindoc_report__">${jsSrc}</script>`);
+        `<script id="__traindoc_data__">window.__TRAINDOC_DATA__ = ${safeJson};<\/script>\n<script id="__traindoc_report__">${safeJs}<\/script>`);
 
     const title = slugify(getCurrentTitle());
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
