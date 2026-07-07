@@ -4,7 +4,7 @@
 // When this file is opened as a shared .html (no extension), chrome APIs are
 // unavailable. All reads/writes go through _mem, pre-seeded from embedded data.
 const STANDALONE = (() => {
-  try { return typeof chrome === 'undefined' || typeof chrome.storage === 'undefined'; }
+  try { return !chrome?.runtime?.id; }
   catch(e) { return true; }
 })();
 const _mem = STANDALONE ? (window.__TRAINDOC_DATA__ || {}) : {};
