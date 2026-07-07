@@ -10,7 +10,10 @@ const _mem = STANDALONE ? (window.__TRAINDOC_DATA__ || {}) : {};
 
 function storageGet(keys, cb) {
   if (STANDALONE) {
-    const r = {}; keys.forEach(k => { if (k in _mem) r[k] = _mem[k]; }); cb(r); return;
+    // Use setTimeout so the callback fires after the full script has parsed —
+    // otherwise const declarations later in the file hit the temporal dead zone.
+    const r = {}; keys.forEach(k => { if (k in _mem) r[k] = _mem[k]; });
+    setTimeout(() => cb(r), 0); return;
   }
   chrome.storage.local.get(keys, cb);
 }
