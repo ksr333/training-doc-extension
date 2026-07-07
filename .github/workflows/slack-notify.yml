@@ -1,0 +1,83 @@
+name: Post update to Slack
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version from manifest
+        id: version
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('manifest.json'))['version'])")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "zip_name=traindoc-v${VERSION}.zip" >> $GITHUB_OUTPUT
+
+      - name: Create extension zip
+        run: |
+          zip -r "${{ steps.version.outputs.zip_name }}" . \
+            --exclude ".git/*" \
+            --exclude ".github/*" \
+            --exclude "*.zip" \
+            --exclude "README.md" \
+            --exclude "CHANGES.txt"
+
+      - name: Post to Slack
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          ZIP_NAME: ${{ steps.version.outputs.zip_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, urllib.request, urllib.parse, sys
+
+          token      = os.environ['SLACK_BOT_TOKEN']
+          channel_id = os.environ['SLACK_CHANNEL_ID']
+          zip_name   = os.environ['ZIP_NAME']
+          version    = os.environ['VERSION']
+          changes    = open('CHANGES.txt').read().strip()
+          file_size  = os.path.getsize(zip_name)
+
+          def slack(endpoint, data, headers={}):
+              req = urllib.request.Request(
+                  f'https://slack.com/api/{endpoint}', data=data,
+                  headers={'Authorization': f'Bearer {token}', **headers}
+              )
+              with urllib.request.urlopen(req) as r:
+                  resp = json.loads(r.read())
+              if not resp.get('ok'):
+                  print(f'Slack error on {endpoint}:', resp); sys.exit(1)
+              return resp
+
+          # 1 — get upload URL
+          r1 = slack('files.getUploadURLExternal',
+                     urllib.parse.urlencode({'filename': zip_name,
+                                             'length': str(file_size)}).encode())
+          upload_url, file_id = r1['upload_url'], r1['file_id']
+
+          # 2 — upload zip
+          with open(zip_name, 'rb') as f:
+              req2 = urllib.request.Request(upload_url, data=f.read(), method='POST')
+              req2.add_header('Content-Type', 'application/octet-stream')
+              req2.add_header('Authorization', f'Bearer {token}')
+              urllib.request.urlopen(req2)
+
+          # 3 — complete upload & post to channel
+          message = (
+              f":wrench: *TrainDoc Extension — v{version}*\n\n"
+              + changes +
+              "\n\n_To install: unzip and load in Chrome at `chrome://extensions` → Developer mode → Load unpacked_"
+          )
+          slack('files.completeUploadExternal',
+                json.dumps({'files': [{'id': file_id}],
+                            'channel_id': channel_id,
+                            'initial_comment': message}).encode(),
+                headers={'Content-Type': 'application/json'})
+
+          print(f'Posted v{version} to Slack successfully.')
+          PYEOF

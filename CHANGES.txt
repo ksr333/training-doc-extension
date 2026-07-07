@@ -1,0 +1,4 @@
+v1.2.0
+• Share feature: click "↑ Share" in the toolbar to export a self-contained .html file with all steps and screenshots embedded. The recipient opens it in any browser — no extension required — and can edit step descriptions, reorder steps, add notes, and click "↓ Download Updated Report" to save their changes as a new file.
+• Reduced click debounce from 800ms → 400ms so rapid sequential clicks inside embedded apps (e.g. Docuseal TYPE/Set Today) are no longer dropped
+• Improved capture of custom-component buttons (divs/spans styled as buttons) by detecting cursor:pointer as a fallback when standard element selectors don't match

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TrainDoc</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      width: 280px; background: #0f0f0f; color: #f0f0f0;
+    }
+    .header { padding: 14px 18px 12px; border-bottom: 1px solid #222; }
+    .logo { display: flex; align-items: center; gap: 8px; }
+    .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: #4f46e5; }
+    .logo-text { font-size: 15px; font-weight: 600; color: #fff; }
+    .logo-text span { color: #818cf8; }
+    .body { padding: 14px 18px; }
+    .status-badge { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #666; margin-bottom: 14px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #333; flex-shrink: 0; }
+    .status-dot.recording { background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.2); animation: pulse-red 1.4s infinite; }
+    .status-dot.paused { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.2); animation: pulse-amber 2s infinite; }
+    @keyframes pulse-red {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(239,68,68,0.2); }
+      50% { box-shadow: 0 0 0 5px rgba(239,68,68,0.07); }
+    }
+    @keyframes pulse-amber {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(245,158,11,0.2); }
+      50% { box-shadow: 0 0 0 5px rgba(245,158,11,0.07); }
+    }
+    .step-count { font-size: 28px; font-weight: 700; color: #fff; line-height: 1; margin-bottom: 4px; }
+    .step-label { font-size: 12px; color: #555; margin-bottom: 18px; }
+    .btn {
+      width: 100%; padding: 10px 16px; border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s; margin-bottom: 7px;
+      display: none;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-start  { background: #4f46e5; color: #fff; }
+    .btn-start:hover:not(:disabled)  { background: #4338ca; }
+    .btn-resume { background: #4f46e5; color: #fff; }
+    .btn-resume:hover:not(:disabled) { background: #4338ca; }
+    .btn-pause  { background: #1a1a1a; color: #f59e0b; border: 1px solid #2a2a2a; }
+    .btn-pause:hover:not(:disabled)  { background: #2a1f00; border-color: #f59e0b; }
+    .btn-stop   { background: #1a1a1a; color: #ef4444; border: 1px solid #2a2a2a; }
+    .btn-stop:hover:not(:disabled)   { background: #ef4444; color: #fff; border-color: #ef4444; }
+    .btn-capture { background: #1a1a1a; color: #a3e635; border: 1px solid #2a2a2a; font-size: 12px; padding: 8px 16px; }
+    .btn-capture:hover:not(:disabled) { background: #1a2e05; border-color: #4d7c0f; }
+    .btn-report { background: #052e16; color: #4ade80; border: 1px solid #14532d; }
+    .btn-report:hover:not(:disabled) { background: #14532d; }
+    .last-step {
+      margin-top: 12px; padding: 9px 11px; background: #161616;
+      border-radius: 7px; border: 1px solid #222; font-size: 11px;
+      color: #888; line-height: 1.5; display: none;
+    }
+    .last-step.visible { display: block; }
+    .last-step strong { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #444; margin-bottom: 2px; }
+    .pause-hint { font-size: 10px; color: #4b5563; text-align: center; margin-bottom: 6px; display: none; }
+    .footer { padding: 9px 18px; border-top: 1px solid #1a1a1a; font-size: 10px; color: #333; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      <div class="logo-text">Train<span>Doc</span></div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="status-badge">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Not recording</span>
+    </div>
+    <div class="step-count" id="stepCount">0</div>
+    <div class="step-label">steps captured</div>
+
+    <!-- idle state -->
+    <button class="btn btn-start"   id="btnStart">▶ Start Recording</button>
+    <!-- paused state -->
+    <button class="btn btn-resume"  id="btnResume">▶ Resume Recording</button>
+    <!-- recording state -->
+    <button class="btn btn-pause"   id="btnPause">⏸ Pause</button>
+    <!-- recording or paused -->
+    <button class="btn btn-stop"    id="btnStop">■ Stop &amp; Review</button>
+    <!-- recording only -->
+    <button class="btn btn-capture" id="btnCapture">📸 Capture step now</button>
+    <!-- paused or idle with steps -->
+    <button class="btn btn-report"  id="btnReport">↓ Open Report</button>
+
+    <div class="pause-hint" id="pauseHint">⏸ Paused — steps preserved. Resume to keep capturing.</div>
+
+    <div class="last-step" id="lastStep">
+      <strong>Last captured</strong>
+      <span id="lastStepText">—</span>
+    </div>
+  </div>
+  <div class="footer">TrainDoc · <span id="versionLabel"></span></div>
+  <script src="popup.js"></script>
+</body>
+</html>

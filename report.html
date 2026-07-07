@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrainDoc Report</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #111827; --muted: #6b7280; --rule: #e5e7eb;
+      --accent: #4f46e5; --page-pad: 60px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #d1d5db; color: var(--ink); min-height: 100vh;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      position: sticky; top: 0; z-index: 100;
+      background: #fff; border-bottom: 1px solid var(--rule);
+      padding: 10px 24px; display: flex; align-items: center; gap: 8px;
+    }
+    .toolbar-title { font-size: 14px; font-weight: 700; flex: 1; }
+    .toolbar-title span { color: var(--accent); }
+    .btn {
+      padding: 7px 13px; border-radius: 6px; font-size: 12px;
+      font-weight: 600; cursor: pointer; border: none; transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-ghost { background: #f3f4f6; color: #374151; border: 1px solid var(--rule); }
+    .btn-ghost:hover { background: #e5e7eb; }
+
+    /* Recording badge */
+    .rec-badge {
+      font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px;
+      letter-spacing: 0.3px; display: none; align-items: center; gap: 5px;
+    }
+    .rec-badge.recording { display: inline-flex; background: #fee2e2; color: #dc2626; }
+    .rec-badge.paused    { display: inline-flex; background: #fef3c7; color: #d97706; }
+    .rec-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .rec-badge.recording .rec-dot { animation: blink 1s infinite; }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+
+    /* Print tip */
+    .print-tip {
+      font-size: 11px; color: #6b7280; padding: 4px 8px;
+      background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 5px;
+      white-space: nowrap; display: none;
+    }
+    .print-tip.visible { display: block; }
+
+    /* Export dropdown */
+    .export-wrap { position: relative; }
+    .export-menu {
+      display: none; position: absolute; top: calc(100% + 6px); right: 0;
+      background: #fff; border: 1px solid var(--rule); border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 200px; overflow: hidden; z-index: 200;
+    }
+    .export-menu.open { display: block; }
+    .export-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; cursor: pointer; font-size: 13px; color: var(--ink);
+      border: none; background: none; width: 100%; text-align: left;
+    }
+    .export-item:hover { background: #f5f3ff; }
+    .export-item .icon { font-size: 16px; width: 20px; text-align: center; }
+    .export-item .label { font-weight: 600; }
+    .export-item .sub { font-size: 11px; color: var(--muted); }
+
+    /* ── Page ── */
+    .page-wrap { max-width: 900px; margin: 32px auto 60px; }
+    .doc {
+      background: #fff; border-radius: 3px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.04);
+    }
+
+    /* ── Cover ── */
+    .cover {
+      padding: 48px var(--page-pad) 40px;
+      border-bottom: 2px solid var(--rule);
+      background: linear-gradient(135deg, #eef2ff 0%, #fff 60%);
+    }
+    .cover-top { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+    .logo-wrap {
+      height: 52px; min-width: 52px; max-width: 220px; width: auto;
+      flex-shrink: 0; border-radius: 10px;
+      cursor: pointer; position: relative; overflow: hidden;
+    }
+    .logo-wrap:hover .logo-hint { opacity: 1; }
+    .logo-hint {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: #fff; font-weight: 700; text-align: center;
+      opacity: 0; transition: opacity 0.15s; border-radius: 10px; white-space: nowrap;
+    }
+    .logo-img {
+      height: 52px; width: auto; max-width: 220px;
+      object-fit: contain; border-radius: 10px;
+      border: 1px solid #dde4f5; background: #fff; display: block;
+    }
+    .logo-placeholder {
+      width: 52px; height: 52px; border-radius: 10px;
+      background: #e0e7ff; border: 2px dashed #a5b4fc;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 4px; font-size: 9px; font-weight: 700; color: #6366f1;
+    }
+    .cover-badge {
+      display: inline-block; background: #e0e7ff; color: var(--accent);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; padding: 3px 9px; border-radius: 4px;
+    }
+    .cover h2 {
+      font-size: 26px; font-weight: 800; letter-spacing: -0.5px;
+      color: var(--ink); margin-bottom: 14px; line-height: 1.25;
+      outline: none; cursor: text; border-bottom: 2px dashed transparent; transition: border-color 0.15s;
+    }
+    .cover h2:hover, .cover h2:focus { border-bottom-color: var(--accent); }
+
+    /* Guide description block */
+    .guide-desc {
+      font-size: 14px; line-height: 1.65; color: #4b5563;
+      margin: 4px 0 18px; padding: 10px 12px;
+      border-radius: 6px; border: 1px dashed transparent;
+      cursor: text; min-height: 52px; outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .guide-desc:hover { border-color: #d1d5db; background: #f9fafb; }
+    .guide-desc:focus { border-color: #a5b4fc; background: #fff; }
+    .guide-desc[data-empty]::before {
+      content: 'Click to add a description — who is this guide for, what does it cover, any prerequisites?';
+      color: #9ca3af; pointer-events: none;
+    }
+
+    .cover-meta { font-size: 12px; color: var(--muted); display: flex; gap: 24px; flex-wrap: wrap; }
+    .cover-meta span::before { content: attr(data-label) ': '; font-weight: 600; color: #9ca3af; }
+
+    /* ── Steps ── */
+    .steps { padding-top: 8px; }
+    .steps-heading {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; color: #9ca3af;
+      padding: 28px var(--page-pad) 0; margin-bottom: 4px;
+    }
+
+    /* ── Step ── */
+    .step { border-top: 1px solid var(--rule); margin-top: 20px; }
+    .step.dragging { opacity: 0.4; }
+    .step.drag-over { border-top: 3px solid var(--accent); }
+
+    .step-header {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 18px var(--page-pad) 14px;
+    }
+    .drag-handle {
+      color: #b8c0cc; cursor: grab; padding: 10px 6px 0 0;
+      flex-shrink: 0; user-select: none; opacity: 0.5; transition: opacity 0.15s;
+    }
+    .drag-handle:hover { opacity: 1; color: #6b7280; }
+    .drag-handle:active { cursor: grabbing; }
+    .step-number {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--accent); color: #fff;
+      font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 3px;
+    }
+    /* All step numbers use the same accent color for simplicity */
+    .step-note .step-header { background: #fffbeb; }
+    .step-note .note-badge {
+      display: inline-block; background: #fef3c7; color: #92400e;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+      text-transform: uppercase; padding: 2px 6px; border-radius: 3px; margin-bottom: 5px;
+    }
+    .step-text { flex: 1; min-width: 0; }
+    .step-description {
+      font-size: 14px; font-weight: 600; color: var(--ink);
+      line-height: 1.45; margin-bottom: 4px;
+      outline: none; border-radius: 4px; padding: 1px 4px; margin-left: -4px; cursor: text;
+    }
+    .step-description:hover, .step-description:focus { background: #f0f4ff; }
+    .step-note .step-description { font-weight: 400; font-size: 14px; line-height: 1.6; }
+    .step-url { font-size: 11px; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Screenshot */
+    .screenshot-wrap { line-height: 0; border-top: 1px solid var(--rule); position: relative; }
+    .step-screenshot { width: 100%; display: block; }
+    .step-screenshot.portrait { max-width: 380px; margin: 0 auto; display: block; }
+    .no-screenshot {
+      height: 52px; background: #f9fafb; border-top: 1px dashed #d1d5db;
+      display: flex; align-items: center; padding: 0 var(--page-pad);
+      font-size: 12px; color: #9ca3af;
+    }
+
+    /* Redact / annotate overlay (shared) */
+    .redact-overlay {
+      position: absolute; inset: 0; cursor: crosshair; z-index: 10;
+      background: rgba(30,20,80,0.08);
+    }
+    .redact-selection {
+      position: absolute; border: 2px solid #ef4444;
+      background: rgba(239,68,68,0.15); pointer-events: none;
+    }
+    /* Annotation circle preview — oval ring, no fill */
+    .annotate-selection {
+      position: absolute; border: 3px solid #ff3b30;
+      border-radius: 50%; pointer-events: none;
+      box-shadow: 0 0 0 1.5px rgba(255,59,48,0.25);
+    }
+    .redact-hint {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(17,24,39,0.85); color: #fff;
+      font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px;
+      white-space: nowrap; pointer-events: none;
+    }
+
+    /* Actions bar */
+    .step-actions {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 16px; background: #fafafa; border-top: 1px solid var(--rule);
+    }
+    .action-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 0 11px; height: 28px; border-radius: 5px; border: 1px solid #e5e7eb;
+      background: #fff; color: #6b7280; line-height: 1;
+      font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .action-btn:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
+    .action-btn.danger:hover { background: #fee2e2; border-color: #fca5a5; color: #dc2626; }
+    .action-btn.active { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    .action-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+    .spacer { flex: 1; }
+
+    /* Contenteditable placeholder */
+    .step-description:empty::before {
+      content: attr(data-placeholder);
+      color: #9ca3af; font-weight: 400; pointer-events: none;
+    }
+
+    /* Custom step upload area */
+    .upload-placeholder {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; min-height: 140px; background: #f9fafb;
+      border-top: 1px dashed #d1d5db; cursor: pointer;
+      color: #6b7280; transition: background 0.15s;
+    }
+    .upload-placeholder:hover { background: #f0f4ff; color: var(--accent); }
+    .upload-label { font-size: 14px; font-weight: 600; }
+    .upload-sub { font-size: 12px; color: #9ca3af; }
+
+    /* Empty */
+    .empty { padding: 80px; text-align: center; color: var(--muted); }
+    .empty h3 { font-size: 18px; margin-bottom: 8px; }
+
+    /* ── Section dividers ── */
+    .step-section {
+      border-top: none; margin-top: 0;
+      background: linear-gradient(135deg, #312e81 0%, #4f46e5 100%);
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    /* Tab-switch auto-sections: blue, visually distinct from manual indigo */
+    .step-section.tab-switch {
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    }
+    .step-section.tab-switch .step-actions {
+      background: rgba(0,0,0,0.22); border-top: 1px solid rgba(255,255,255,0.15);
+    }
+    .section-inner {
+      display: flex; align-items: center; gap: 12px;
+      padding: 22px var(--page-pad);
+    }
+    .section-text-col { flex: 1; min-width: 0; }
+    .section-title {
+      flex: 1; font-size: 19px; font-weight: 800; color: #fff;
+      letter-spacing: -0.3px; line-height: 1.3;
+      outline: none; cursor: text; border-radius: 4px;
+      padding: 2px 6px; margin-left: -6px;
+    }
+    .section-text-col .section-title { flex: none; }
+    .section-title:hover, .section-title:focus { background: rgba(255,255,255,0.12); }
+    .section-title:empty::before {
+      content: attr(data-placeholder);
+      color: rgba(255,255,255,0.45); font-weight: 400; pointer-events: none;
+    }
+    .section-tab-url {
+      font-size: 11px; color: rgba(255,255,255,0.6);
+      margin-top: 3px; padding-left: 6px;
+    }
+    .section-tab-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,0.2); color: #fff;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+      text-transform: uppercase; padding: 4px 10px; border-radius: 20px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .step-section .drag-handle { color: rgba(255,255,255,0.4); }
+    .step-section .step-actions {
+      background: rgba(0,0,0,0.25); border-top: 1px solid rgba(255,255,255,0.12);
+    }
+    .step-section .action-btn { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: #e0e7ff; }
+    .step-section .action-btn:hover { background: rgba(255,255,255,0.2); }
+    .step-section .action-btn.danger:hover { background: rgba(239,68,68,0.35); border-color: #fca5a5; color: #fca5a5; }
+
+    /* Section heading in summary */
+    .summary-section-header {
+      list-style: none; display: block; column-span: all;
+      background: #eef2ff; border-left: 3px solid var(--accent);
+      padding: 7px 12px; margin: 16px 0 4px;
+      border-radius: 0 5px 5px 0; border-bottom: none;
+      counter-reset: summary-counter; /* restart step numbers at each section */
+    }
+    .summary-section-header.tab-switch {
+      background: #eff6ff; border-left-color: #2563eb;
+    }
+    .summary-section-title {
+      font-size: 11px; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.7px;
+      outline: none; border-radius: 3px; padding: 1px 4px; cursor: text;
+    }
+    .summary-section-header.tab-switch .summary-section-title { color: #1d4ed8; }
+    .summary-section-title:hover, .summary-section-title:focus { background: rgba(79,70,229,0.08); }
+    .summary-section-title:empty::before {
+      content: attr(data-placeholder); color: #a5b4fc; font-weight: 400; pointer-events: none;
+    }
+
+    /* ── Summary section (screen) ── */
+    .summary-section {
+      border-top: 2px solid var(--rule);
+      padding: 28px var(--page-pad) 48px;
+      background: #f9fafb;
+    }
+    .summary-list {
+      list-style: none; counter-reset: summary-counter;
+      padding: 0; margin: 12px 0 0;
+      columns: 2; column-gap: 36px;
+    }
+    .summary-item {
+      counter-increment: summary-counter;
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 8px 0; border-bottom: 1px solid var(--rule);
+      break-inside: avoid;
+    }
+    .summary-item::before {
+      content: counter(summary-counter);
+      min-width: 26px; height: 26px; border-radius: 50%;
+      background: var(--accent); color: #fff;
+      font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .summary-text {
+      flex: 1; font-size: 13px; line-height: 1.5; color: var(--ink);
+      outline: none; border-radius: 4px; padding: 1px 4px; cursor: text;
+    }
+    .summary-text:hover, .summary-text:focus { background: #f0f4ff; }
+
+    /* Dual logo layout */
+    .logo-wrap-right { margin-left: auto; }
+
+    /* ── Print ── */
+    /* Setting @page margin:0 suppresses Chrome's built-in header/footer text.
+       We compensate with padding on the print body. */
+    @media print {
+      body { background: #fff; padding: 14mm 18mm; }
+      .toolbar, .step-actions, .drag-handle, .print-tip { display: none !important; }
+      .page-wrap { margin: 0; max-width: 100%; }
+      .doc { box-shadow: none; border-radius: 0; }
+      .cover { break-after: page; }
+
+      /* Full steps (with screenshots): always start a new page */
+      .step { break-inside: avoid; }
+      .step:not(.step-short) { break-after: page; }
+
+      /* Short steps (notes, no screenshot): flow together without forcing a page break */
+      .step-short { break-after: auto; }
+
+      /* Section dividers: keep the section banner on the same page as the first
+         step that follows it. .step.step-section has higher specificity than
+         .step:not(.step-short) so break-after:avoid actually wins here. */
+      .step.step-section { break-after: avoid; break-before: auto; }
+
+      /* Hide URLs — not useful for training doc readers */
+      .step-url { display: none; }
+
+      /* Constrain screenshots to fit one landscape page */
+      .step-screenshot { max-height: 155mm; width: auto; max-width: 100%; display: block; margin: 0 auto; }
+      .step-screenshot.portrait { max-width: 45%; max-height: 155mm; }
+
+      .cover, .step-header, .steps-heading { padding-left: 0; padding-right: 0; }
+
+      /* Description block: clean in print, no borders or hover effects */
+      .guide-desc { border: none; background: none; padding: 4px 0; margin: 6px 0 16px; color: #444; font-size: 12pt; }
+      .guide-desc[data-empty]::before { display: none; }
+
+      /* Annotation layer: circles print, but handles/delete never do */
+      .annotation-layer circle[fill="#fff"],
+      .annotation-layer g[style*="cursor: pointer"] { display: none !important; }
+
+      /* Quick reference: two columns, full page */
+      .summary-section {
+        break-before: page; background: #fff;
+        padding: 0; border-top: none;
+      }
+      .summary-list { columns: 2; column-gap: 36px; }
+      .summary-item { border-bottom: 1px solid #e5e7eb; }
+      .summary-section-header { break-inside: avoid; }
+      .summary-text { background: none !important; }
+
+      @page { margin: 0; size: A4 landscape; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="toolbar-title">Train<span>Doc</span> — Training Guide</div>
+    <span class="rec-badge" id="recBadge"><span class="rec-dot"></span><span id="recLabel"></span></span>
+    <button class="btn btn-ghost" id="btnNew">+ New Recording</button>
+    <div class="export-wrap">
+      <button class="btn btn-ghost" id="btnExport">Export ▾</button>
+      <div class="export-menu" id="exportMenu">
+        <button class="export-item" id="exportMd">
+          <span class="icon">📄</span>
+          <span><div class="label">Download Markdown</div><div class="sub">Embedded images, works in GitHub / Notion</div></span>
+        </button>
+        <button class="export-item" id="exportHtml">
+          <span class="icon">🌐</span>
+          <span><div class="label">Download HTML</div><div class="sub">Paste into Confluence HTML macro</div></span>
+        </button>
+        <button class="export-item" id="exportScreenshots">
+          <span class="icon">🖼️</span>
+          <span><div class="label">Download Screenshots</div><div class="sub">All screenshots as a .zip file, in order</div></span>
+        </button>
+      </div>
+    </div>
+    <button class="btn btn-ghost" id="btnShare">↑ Share</button>
+    <span class="print-tip" id="printTip">💡 In Chrome's print dialog, uncheck "Headers and footers"</span>
+    <button class="btn btn-primary" id="btnPrint">↓ Save as PDF</button>
+  </div>
+  <div class="page-wrap">
+    <div class="doc" id="doc">
+      <div class="empty" id="emptyState">
+        <h3>No recording yet</h3>
+        <p>Click Start Recording in the TrainDoc popup, then stop when done.</p>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="logoInput" accept="image/*" style="display:none" />
+  <input type="file" id="logoInputLeft" accept="image/*" style="display:none" />
+  <input type="file" id="screenshotInput" accept="image/*" style="display:none" />
+  <script src="minizip.js"></script>
+  <script src="report.js"></script>
+</body>
+</html>
