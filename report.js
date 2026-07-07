@@ -3,10 +3,9 @@
 // ─── Standalone mode ──────────────────────────────────────────────────────────
 // When this file is opened as a shared .html (no extension), chrome APIs are
 // unavailable. All reads/writes go through _mem, pre-seeded from embedded data.
-const STANDALONE = (() => {
-  try { return !chrome?.runtime?.id; }
-  catch(e) { return true; }
-})();
+// STANDALONE is true when the file is the shared export (data is embedded directly in the HTML).
+// We detect this by the presence of window.__TRAINDOC_DATA__, which only exists in exported files.
+const STANDALONE = typeof window.__TRAINDOC_DATA__ !== 'undefined';
 const _mem = STANDALONE ? (window.__TRAINDOC_DATA__ || {}) : {};
 
 function storageGet(keys, cb) {
